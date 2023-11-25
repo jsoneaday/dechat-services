@@ -1,0 +1,9 @@
+[package]
+name = "event_handler"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+sui-sdk.workspace = true
+tokio.workspace = true

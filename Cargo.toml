@@ -1,0 +1,11 @@
+[workspace]
+
+members = [
+    "event_handler",
+    "data_service"
+]
+
+[workspace.dependencies]
+sui-sdk = { git = "https://github.com/mystenlabs/sui", package = "sui-sdk"}
+tokio = { version = "1.34.0", features = ["full"] }
+anyhow = "1.0.75"
