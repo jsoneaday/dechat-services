@@ -1731,6 +1731,11 @@ dependencies = [
 [[package]]
 name = "data_service"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "sui-sdk",
+ "tokio",
+]
 
 [[package]]
 name = "der"
@@ -2140,6 +2145,10 @@ name = "event_handler"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures",
+ "move-core-types",
+ "sui-config",
+ "sui-keys",
  "sui-sdk",
  "tokio",
 ]

@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+futures.workspace = true
 anyhow.workspace = true
+sui-config.workspace = true
+sui-keys.workspace = true
 sui-sdk.workspace = true
 tokio.workspace = true
+move-core-types = { git = "https://github.com/mystenlabs/sui", package = "move-core-types"}
