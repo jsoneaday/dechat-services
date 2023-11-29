@@ -1,0 +1,21 @@
+[package]
+name = "repository"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common = { path = "../common" }
+async-trait.workspace = true
+chrono.workspace = true
+dotenv.workspace = true
+env_logger.workspace = true
+fake.workspace = true
+lazy_static.workspace = true
+log.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_repr.workspace = true
+tokio.workspace = true
+mockall = "0.11.4"
+sqlx = { version = "0.7.3", features = ["postgres", "runtime-tokio-rustls", "chrono"]}
