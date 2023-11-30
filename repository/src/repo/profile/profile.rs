@@ -5,6 +5,7 @@ use sqlx::{ Pool, Postgres };
 use mockall::automock;
 use mockall::predicate::*;
 
+
 mod private_members {
     use super::*;
 
@@ -43,6 +44,7 @@ mod tests {
     use super::*;
     use lazy_static::lazy_static;
     use std::sync::{ Arc, RwLock };
+    use log::info;
 
     #[derive(Clone)]
     #[allow(unused)]
@@ -59,23 +61,43 @@ mod tests {
     }
 
     /// Add Profile data for this set of tests
-    async fn setup_db_profile_test_data(db_repo: DbRepo) -> Result<(), Box<dyn std::error::Error>> {  
-        _ = sqlx::query_as::<_, EntityId>(
+    async fn setup_db_profile_test_data(db_repo: DbRepo) -> Result<(), Box<dyn std::error::Error>> {
+        let conn = db_repo.get_conn();
+        let username_dave = format!("{}dave", PREFIX);
+        println!("Check profile_dave already inserted");
+        let profile_dave = sqlx::query_as::<_, ProfileQueryResult>(
             r"
-            insert into Profile 
-            (user_name, full_name, description, main_url, avatar) 
-            values 
-            ($1, $2, $3, $4, $5, $6)
-            returning id
+                select *
+                from profile
+                where user_name = $1
             "
         )
-        .bind(format!("{}dave", PREFIX))
-        .bind(format!("{}Dave Choi", PREFIX))
-        .bind(Some(format!("{}I am a chef", PREFIX)))
-        .bind(Some(format!("{}http://test.com", PREFIX)))
-        .bind(None::<Vec<u8>>)
-        .fetch_all(db_repo.get_conn())
-        .await;
+        .bind(username_dave.clone())
+        .fetch_optional(conn)
+        .await
+        .unwrap();
+
+        if let None = profile_dave {
+            println!("profile_dave missing, inserting now");
+            _ = sqlx::query_as::<_, EntityId>(
+                r"
+                insert into Profile 
+                (user_name, full_name, description, main_url, avatar) 
+                values 
+                ($1, $2, $3, $4, $5)
+                returning id
+                "
+            )
+            .bind(username_dave)
+            .bind(format!("{}Dave Choi", PREFIX))
+            .bind(format!("{}I am a chef", PREFIX))
+            .bind(Some(format!("{}http://test.com", PREFIX)))
+            .bind(None::<Vec<u8>>)
+            .fetch_all(conn)
+            .await;
+        } else {
+            println!("profile_dave already inserted");
+        }
 
         Ok(())
     }
@@ -130,7 +152,7 @@ mod tests {
     mod test_query_profile_by_user {
         use super::*;
 
-        async fn test_insert_profile_body() {
+        async fn test_query_profile_by_user_body() {
             let fixtures = fixtures();
             let user_name = format!("{}dave", PREFIX);
 
@@ -144,8 +166,8 @@ mod tests {
         }
 
         #[test]
-        fn test_insert_profile() {
-            RT.block_on(test_insert_profile_body())
+        fn query_profile_by_user() {
+            RT.block_on(test_query_profile_by_user_body())
         }
     }
 }
