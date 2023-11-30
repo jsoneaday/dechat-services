@@ -20,16 +20,16 @@ mod private_members {
 
 #[automock]
 #[async_trait]
-pub trait QueryProfileFn {
-    async fn query_profile(
+pub trait QueryProfileByUserNameFn {
+    async fn query_profile_query_profile_by_user_name(
         &self,
         user_name: String
     ) -> Result<Option<ProfileQueryResult>, sqlx::Error>;
 }
 
 #[async_trait]
-impl QueryProfileFn for DbRepo {
-    async fn query_profile(
+impl QueryProfileByUserNameFn for DbRepo {
+    async fn query_profile_query_profile_by_user_name(
         &self,
         user_name: String
     ) -> Result<Option<ProfileQueryResult>, sqlx::Error> {
@@ -39,6 +39,7 @@ impl QueryProfileFn for DbRepo {
 
 #[cfg(test)]
 mod tests {
+    use crate::repo::base::EntityId;
     use super::*;
     use lazy_static::lazy_static;
     use std::sync::{ Arc, RwLock };
@@ -50,23 +51,42 @@ mod tests {
         db_repo: DbRepo
     }
 
-    #[allow(unused)]
-    const PREFIX: &str = "Test profile";
+    /// Helps prevent clashes between other running tests, by adding unique prefix values for data
+    const PREFIX: &str = "TestProfile";
 
     lazy_static! {
         static ref FIXTURES: Arc<RwLock<Option<Fixtures>>> = Arc::new(RwLock::new(None));
     }
 
-    async fn setup_db_data(_db_repo: DbRepo) -> Result<(), Box<dyn std::error::Error>> {        
+    /// Add Profile data for this set of tests
+    async fn setup_db_profile_test_data(db_repo: DbRepo) -> Result<(), Box<dyn std::error::Error>> {  
+        _ = sqlx::query_as::<_, EntityId>(
+            r"
+            insert into Profile 
+            (user_name, full_name, description, main_url, avatar) 
+            values 
+            ($1, $2, $3, $4, $5, $6)
+            returning id
+            "
+        )
+        .bind(format!("{}dave", PREFIX))
+        .bind(format!("{}Dave Choi", PREFIX))
+        .bind(Some(format!("{}I am a chef", PREFIX)))
+        .bind(Some(format!("{}http://test.com", PREFIX)))
+        .bind(None::<Vec<u8>>)
+        .fetch_all(db_repo.get_conn())
+        .await;
+
         Ok(())
     }
 
-    async fn setup_local_data(db_repo: DbRepo) -> Fixtures {
-        setup_db_data(db_repo.clone()).await.unwrap();
+    /// Set local fixtures data
+    async fn set_local_fixture_data(db_repo: DbRepo) -> Fixtures {
+        setup_db_profile_test_data(db_repo.clone()).await.unwrap();
 
         let profiles = sqlx
             ::query_as::<_, ProfileQueryResult>(
-                "select * from profile where description like 'Test profile%'"
+                "select * from profile where description like 'TestProfile%'"
             )
             .fetch_all(db_repo.get_conn()).await
             .unwrap();
@@ -85,7 +105,7 @@ mod tests {
             None => {
                 let db_repo = DbRepo::init().await;
 
-                *fx = Some(setup_local_data(db_repo).await);
+                *fx = Some(set_local_fixture_data(db_repo).await);
             }
         }
     }
@@ -105,5 +125,27 @@ mod tests {
     #[allow(unused)]
     fn fixtures() -> Fixtures {
         Arc::clone(&FIXTURES).read().unwrap().clone().unwrap()
+    }
+
+    mod test_query_profile_by_user {
+        use super::*;
+
+        async fn test_insert_profile_body() {
+            let fixtures = fixtures();
+            let user_name = format!("{}dave", PREFIX);
+
+            let profile = fixtures.db_repo
+                .query_profile_query_profile_by_user_name(user_name.clone())
+                .await
+                .unwrap()
+                .unwrap();
+
+            assert!(profile.user_name == user_name);
+        }
+
+        #[test]
+        fn test_insert_profile() {
+            RT.block_on(test_insert_profile_body())
+        }
     }
 }
