@@ -22,3 +22,11 @@ pub struct ProfileCreate {
     pub main_url: Option<String>,
     pub avatar: Option<Vec<u8>>,
 }
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ProfileUpdate {
+    pub full_name: String,
+    pub description: String,
+    pub main_url: Option<String>,
+    pub avatar: Option<Vec<u8>>,
+}

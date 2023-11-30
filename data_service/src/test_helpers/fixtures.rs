@@ -62,10 +62,6 @@ pub fn get_profile_create_multipart(
     payload.extend(
         format!("{}\r\n", Sentence(Range { start: 8, end: 10 }).fake::<String>()).as_bytes()
     );
-    payload.extend(format!("--{}\r\n", boundary).as_bytes());
-    payload.extend(format!("Content-Disposition: form-data; name=\"region\"\r\n\r\n").as_bytes());
-    payload.extend(format!("{}\r\n", CountryName().fake::<String>()).as_bytes());
-    payload.extend(format!("--{}\r\n", boundary).as_bytes());
     
     payload.extend(format!("Content-Disposition: form-data; name=\"main_url\"\r\n\r\n").as_bytes());    
     payload.extend(get_fake_main_url().as_bytes());
