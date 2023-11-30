@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use sqlx::{ Pool, Postgres };
 use mockall::automock;
 use mockall::predicate::*;
+#[allow(unused)]
 use log::{error, info};
 
 mod private_members {
@@ -152,8 +153,8 @@ mod tests {
     /// Add Profile data for this set of tests
     async fn setup_db_profile_test_data(db_repo: DbRepo) -> Result<(), Box<dyn std::error::Error>> {
         let conn = db_repo.get_conn();
+
         let username_dave = format!("{}dave", PREFIX);
-        info!("Check profile_dave already inserted");
         let profile_dave = sqlx::query_as::<_, ProfileQueryResult>(
             r"
                 select *
@@ -180,12 +181,43 @@ mod tests {
             .bind(username_dave)
             .bind(format!("{}Dave Choi", PREFIX))
             .bind(format!("{}I am a chef", PREFIX))
-            .bind(Some(format!("{}http://test.com", PREFIX)))
+            .bind(Some(format!("{}http://chef.com", PREFIX)))
             .bind(None::<Vec<u8>>)
             .fetch_all(conn)
             .await;
-        } else {
-            info!("profile_dave already inserted");
+        }
+
+        let username_jill = format!("{}jill", PREFIX);
+        let profile_dave = sqlx::query_as::<_, ProfileQueryResult>(
+            r"
+                select *
+                from profile
+                where user_name = $1
+            "
+        )
+        .bind(username_jill.clone())
+        .fetch_optional(conn)
+        .await
+        .unwrap();
+
+        if let None = profile_dave {
+            info!("profile_dave missing, inserting now");
+            _ = sqlx::query_as::<_, EntityId>(
+                r"
+                    insert into Profile 
+                    (user_name, full_name, description, main_url, avatar) 
+                    values 
+                    ($1, $2, $3, $4, $5)
+                    returning id
+                "
+            )
+            .bind(username_jill)
+            .bind(format!("{}Jill Simon", PREFIX))
+            .bind(format!("{}I am a developer", PREFIX))
+            .bind(Some(format!("{}http://dev.com", PREFIX)))
+            .bind(None::<Vec<u8>>)
+            .fetch_all(conn)
+            .await;
         }
 
         Ok(())
@@ -245,17 +277,33 @@ mod tests {
         async fn test_insert_profile_body() {
             let fixtures = fixtures();
 
+            let user_name = format!("{}insert_tester", PREFIX);
+            let full_name = format!("{}Insert Tester", PREFIX);
+            let description = format!("{}Insert Test description", PREFIX);
             let profile_id = fixtures.db_repo
                 .insert_profile(ProfileCreate {
-                    user_name: format!("{}user_a", PREFIX),
-                    full_name: format!("{}User A", PREFIX),
-                    description: format!("{}Test description", PREFIX),
+                    user_name: user_name.clone(),
+                    full_name: full_name.clone(),
+                    description: description.clone(),
                     main_url: Some("http://whatever.com".to_string()),
                     avatar: Some(vec![]),
                 }).await
                 .unwrap();
 
-            assert!(profile_id > 0);
+            let profile = sqlx::query_as::<_, ProfileQueryResult>(
+                r"
+                    select * from profile where id = $1
+                "
+            )
+            .bind(profile_id)
+            .fetch_one(fixtures.db_repo.get_conn())
+            .await
+            .unwrap();
+
+            assert!(profile.id > 0);
+            assert!(profile.user_name == user_name);
+            assert!(profile.full_name == full_name);
+            assert!(profile.description == description);
         }
 
         #[test]
@@ -269,21 +317,36 @@ mod tests {
 
         async fn test_update_profile_body() {
             let fixtures = fixtures();
-            let username_dave = format!("{}dave", PREFIX);
-            let profile = fixtures.db_repo.query_profile_query_profile_by_user_name(username_dave).await.unwrap().unwrap();
+            let username_jill = format!("{}jill", PREFIX);            
+            let profile = fixtures.db_repo.query_profile_query_profile_by_user_name(username_jill).await.unwrap().unwrap();
 
-            let result = fixtures.db_repo
+            let full_name = format!("{}Update Tester", PREFIX);
+            let description = format!("{}Update Test description", PREFIX);
+            _ = fixtures.db_repo
                 .update_profile(
                     profile.id, 
                     ProfileUpdate {                    
-                        full_name: format!("{}User A", PREFIX),
-                        description: format!("{}Test description", PREFIX),
-                        main_url: Some("http://whatever.com".to_string()),
+                        full_name: full_name.clone(),
+                        description: description.clone(),
+                        main_url: Some("http://updater.com".to_string()),
                         avatar: Some(vec![]),
                     }
                 ).await;
 
-            assert!(result.is_ok());
+            let profile_result = sqlx::query_as::<_, ProfileQueryResult>(
+                r"
+                    select * from profile where id = $1
+                "
+            )
+            .bind(profile.id)
+            .fetch_one(fixtures.db_repo.get_conn())
+            .await
+            .unwrap();
+
+            assert!(profile_result.id == profile.id);
+            assert!(profile_result.full_name == full_name);
+            assert!(profile_result.description == description);
+
         }
 
         #[test]
