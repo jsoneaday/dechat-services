@@ -1,6 +1,6 @@
 use std::ops::Range;
 use crate::app_state::AppState;
-use fake::{faker::{internet::en::Username, name::en::{LastName, FirstName}, lorem::en::Sentence, address::en::CountryName}, Fake};
+use fake::{faker::{internet::en::Username, name::en::{LastName, FirstName}, lorem::en::Sentence}, Fake};
 use repository::repo::base::DbRepo;
 use repository::test_helpers::fixtures::get_fake_main_url;
 use actix_web::{ App, web::{ self, BytesMut, Bytes }, Error, test, dev::{ Service, ServiceResponse } };

@@ -1,5 +1,6 @@
 create table profile (
     "id" bigserial primary key,
+    "chain_id" varchar(500) NOT NULL,
     "created_at" timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "user_name" varchar(50) NOT NULL,
@@ -22,11 +23,11 @@ create table follow (
 
 create table post (
     "id" bigserial primary key,
+    "chain_id" varchar(500) NOT NULL,
     "created_at" timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" timestamptz(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "user_id" bigserial NOT NULL,
-    "body"  varchar(140),
-    "likes" int NOT NULL DEFAULT 0,
+    "message"  varchar(140),
     "image" bytea,
 
     constraint fk_profile foreign key(user_id) references profile(id)

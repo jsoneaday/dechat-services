@@ -15,7 +15,7 @@ echo "build new images"
 docker compose -f docker-compose.dev.yml up -d --build
 
 echo "run sqlx migrations"
-sleep 6
+sleep 10
 sqlx database create --database-url postgres://dechat_db:dechat_db@localhost:5433/dechat_db
 sqlx migrate run --source ./repository/migrations --database-url postgres://dechat_db:dechat_db@localhost:5433/dechat_db
 

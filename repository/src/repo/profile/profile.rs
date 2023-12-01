@@ -19,11 +19,12 @@ mod private_members {
             ::query_as::<_, EntityId>(
                 r"
                 insert into Profile 
-                    (user_name, full_name, description, main_url, avatar) 
+                    (chain_id, user_name, full_name, description, main_url, avatar) 
                     values 
-                    ($1, $2, $3, $4, $5)
+                    ($1, $2, $3, $4, $5, $6)
                 returning id"
             )
+            .bind(&params.chain_id)
             .bind(&params.user_name)
             .bind(&params.full_name)
             .bind(&params.description)
@@ -62,7 +63,7 @@ mod private_members {
 
     pub async fn query_profile_by_user_name_inner(
         conn: &Pool<Postgres>,
-        user_name: String
+        user_name: &str
     ) -> Result<Option<ProfileQueryResult>, sqlx::Error> {
         sqlx::query_as::<_, ProfileQueryResult>("select * from profile where user_name = $1")
             .bind(user_name)
@@ -115,7 +116,7 @@ impl UpdateProfileFn for DbRepo {
 pub trait QueryProfileByUserNameFn {
     async fn query_profile_query_profile_by_user_name(
         &self,
-        user_name: String
+        user_name: &str
     ) -> Result<Option<ProfileQueryResult>, sqlx::Error>;
 }
 
@@ -123,7 +124,7 @@ pub trait QueryProfileByUserNameFn {
 impl QueryProfileByUserNameFn for DbRepo {
     async fn query_profile_query_profile_by_user_name(
         &self,
-        user_name: String
+        user_name: &str
     ) -> Result<Option<ProfileQueryResult>, sqlx::Error> {
         private_members::query_profile_by_user_name_inner(self.get_conn(), user_name).await
     }
@@ -151,7 +152,7 @@ mod tests {
     }
 
     /// Add Profile data for this set of tests
-    async fn setup_db_profile_test_data(db_repo: DbRepo) -> Result<(), Box<dyn std::error::Error>> {
+    async fn setup_db_test_data(db_repo: DbRepo) -> Result<(), Box<dyn std::error::Error>> {
         let conn = db_repo.get_conn();
 
         let username_dave = format!("{}dave", PREFIX);
@@ -172,12 +173,13 @@ mod tests {
             _ = sqlx::query_as::<_, EntityId>(
                 r"
                     insert into Profile 
-                    (user_name, full_name, description, main_url, avatar) 
+                    (chain_id, user_name, full_name, description, main_url, avatar) 
                     values 
-                    ($1, $2, $3, $4, $5)
+                    ($1, $2, $3, $4, $5, $6)
                     returning id
                 "
             )
+            .bind("chain_id123")
             .bind(username_dave)
             .bind(format!("{}Dave Choi", PREFIX))
             .bind(format!("{}I am a chef", PREFIX))
@@ -205,12 +207,13 @@ mod tests {
             _ = sqlx::query_as::<_, EntityId>(
                 r"
                     insert into Profile 
-                    (user_name, full_name, description, main_url, avatar) 
+                    (chain_id, user_name, full_name, description, main_url, avatar) 
                     values 
-                    ($1, $2, $3, $4, $5)
+                    ($1, $2, $3, $4, $5, $6)
                     returning id
                 "
             )
+            .bind("chain_id123")
             .bind(username_jill)
             .bind(format!("{}Jill Simon", PREFIX))
             .bind(format!("{}I am a developer", PREFIX))
@@ -225,7 +228,7 @@ mod tests {
 
     /// Set local fixtures data
     async fn set_local_fixture_data(db_repo: DbRepo) -> Fixtures {
-        setup_db_profile_test_data(db_repo.clone()).await.unwrap();
+        setup_db_test_data(db_repo.clone()).await.unwrap();
 
         let profiles = sqlx
             ::query_as::<_, ProfileQueryResult>(
@@ -282,6 +285,7 @@ mod tests {
             let description = format!("{}Insert Test description", PREFIX);
             let profile_id = fixtures.db_repo
                 .insert_profile(ProfileCreate {
+                    chain_id: "chain_id123".to_string(),
                     user_name: user_name.clone(),
                     full_name: full_name.clone(),
                     description: description.clone(),
@@ -317,8 +321,9 @@ mod tests {
 
         async fn test_update_profile_body() {
             let fixtures = fixtures();
-            let username_jill = format!("{}jill", PREFIX);            
-            let profile = fixtures.db_repo.query_profile_query_profile_by_user_name(username_jill).await.unwrap().unwrap();
+            let username_jill = format!("{}jill", PREFIX);
+            let username_jill_str = username_jill.as_str();            
+            let profile = fixtures.db_repo.query_profile_query_profile_by_user_name(username_jill_str).await.unwrap().unwrap();
 
             let full_name = format!("{}Update Tester", PREFIX);
             let description = format!("{}Update Test description", PREFIX);
@@ -360,15 +365,16 @@ mod tests {
 
         async fn test_query_profile_by_user_name_body() {
             let fixtures = fixtures();
-            let user_name = format!("{}dave", PREFIX);
+            let username = format!("{}jill", PREFIX);
+            let username_str = username.as_str(); 
 
             let profile = fixtures.db_repo
-                .query_profile_query_profile_by_user_name(user_name.clone())
+                .query_profile_query_profile_by_user_name(username_str)
                 .await
                 .unwrap()
                 .unwrap();
 
-            assert!(profile.user_name == user_name);
+            assert!(profile.user_name == username_str);
         }
 
         #[test]

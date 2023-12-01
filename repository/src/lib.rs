@@ -4,7 +4,8 @@ pub mod repo {
         pub mod model;
     }
     pub mod post {
-
+        pub mod post;
+        pub mod model;
     }
     pub mod base;
 }
