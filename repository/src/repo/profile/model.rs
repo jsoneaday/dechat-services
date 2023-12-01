@@ -7,7 +7,8 @@ pub struct ProfileQueryResult {
     pub id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub chain_id: String,
+    pub chain_asset_id: String,
+    pub chain_id: i64,
     pub user_name: String,
     pub full_name: String,
     pub description: String,
@@ -17,7 +18,8 @@ pub struct ProfileQueryResult {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ProfileCreate {
-    pub chain_id: String,
+    pub chain_asset_id: String,
+    pub chain_id: i64,
     pub user_name: String,
     pub full_name: String,
     pub description: String,

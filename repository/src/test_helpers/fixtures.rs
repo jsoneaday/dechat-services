@@ -10,6 +10,7 @@ use fake::faker::company::en::CompanyName;
 use std::ops::Range ;
 use common::file_utils::get_avatar_buffer;
 
+pub const SUI_CHAIN_ID: i64 = 1;
 pub const PUBLIC_GROUP_TYPE: i32 = 1;
 pub const CIRCLE_GROUP_TYPE: i32 = 2;
 #[allow(unused)]

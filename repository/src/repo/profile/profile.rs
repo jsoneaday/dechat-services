@@ -19,11 +19,12 @@ mod private_members {
             ::query_as::<_, EntityId>(
                 r"
                 insert into Profile 
-                    (chain_id, user_name, full_name, description, main_url, avatar) 
+                    (chain_asset_id, chain_id, user_name, full_name, description, main_url, avatar) 
                     values 
-                    ($1, $2, $3, $4, $5, $6)
+                    ($1, $2, $3, $4, $5, $6, $7)
                 returning id"
             )
+            .bind(&params.chain_asset_id)
             .bind(&params.chain_id)
             .bind(&params.user_name)
             .bind(&params.full_name)
@@ -114,7 +115,7 @@ impl UpdateProfileFn for DbRepo {
 #[automock]
 #[async_trait]
 pub trait QueryProfileByUserNameFn {
-    async fn query_profile_query_profile_by_user_name(
+    async fn query_profile_by_user_name(
         &self,
         user_name: &str
     ) -> Result<Option<ProfileQueryResult>, sqlx::Error>;
@@ -122,7 +123,7 @@ pub trait QueryProfileByUserNameFn {
 
 #[async_trait]
 impl QueryProfileByUserNameFn for DbRepo {
-    async fn query_profile_query_profile_by_user_name(
+    async fn query_profile_by_user_name(
         &self,
         user_name: &str
     ) -> Result<Option<ProfileQueryResult>, sqlx::Error> {
@@ -132,7 +133,7 @@ impl QueryProfileByUserNameFn for DbRepo {
 
 #[cfg(test)]
 mod tests {
-    use crate::repo::base::EntityId;
+    use crate::{repo::base::EntityId, test_helpers::fixtures::SUI_CHAIN_ID};
     use super::*;
     use lazy_static::lazy_static;
     use std::sync::{ Arc, RwLock };
@@ -173,13 +174,14 @@ mod tests {
             _ = sqlx::query_as::<_, EntityId>(
                 r"
                     insert into Profile 
-                    (chain_id, user_name, full_name, description, main_url, avatar) 
+                    (chain_asset_id, chain_id, user_name, full_name, description, main_url, avatar) 
                     values 
-                    ($1, $2, $3, $4, $5, $6)
+                    ($1, $2, $3, $4, $5, $6, $7)
                     returning id
                 "
             )
             .bind("chain_id123")
+            .bind(SUI_CHAIN_ID)
             .bind(username_dave)
             .bind(format!("{}Dave Choi", PREFIX))
             .bind(format!("{}I am a chef", PREFIX))
@@ -207,13 +209,14 @@ mod tests {
             _ = sqlx::query_as::<_, EntityId>(
                 r"
                     insert into Profile 
-                    (chain_id, user_name, full_name, description, main_url, avatar) 
+                    (chain_asset_id, chain_id, user_name, full_name, description, main_url, avatar) 
                     values 
-                    ($1, $2, $3, $4, $5, $6)
+                    ($1, $2, $3, $4, $5, $6, $7)
                     returning id
                 "
             )
             .bind("chain_id123")
+            .bind(SUI_CHAIN_ID)
             .bind(username_jill)
             .bind(format!("{}Jill Simon", PREFIX))
             .bind(format!("{}I am a developer", PREFIX))
@@ -276,6 +279,7 @@ mod tests {
 
     mod test_mod_insert_profile {
         use super::*;
+        use crate::test_helpers::fixtures::SUI_CHAIN_ID;
 
         async fn test_insert_profile_body() {
             let fixtures = fixtures();
@@ -285,7 +289,8 @@ mod tests {
             let description = format!("{}Insert Test description", PREFIX);
             let profile_id = fixtures.db_repo
                 .insert_profile(ProfileCreate {
-                    chain_id: "chain_id123".to_string(),
+                    chain_asset_id: "chain_id123".to_string(),
+                    chain_id: SUI_CHAIN_ID,
                     user_name: user_name.clone(),
                     full_name: full_name.clone(),
                     description: description.clone(),
@@ -323,7 +328,7 @@ mod tests {
             let fixtures = fixtures();
             let username_jill = format!("{}jill", PREFIX);
             let username_jill_str = username_jill.as_str();            
-            let profile = fixtures.db_repo.query_profile_query_profile_by_user_name(username_jill_str).await.unwrap().unwrap();
+            let profile = fixtures.db_repo.query_profile_by_user_name(username_jill_str).await.unwrap().unwrap();
 
             let full_name = format!("{}Update Tester", PREFIX);
             let description = format!("{}Update Test description", PREFIX);
@@ -369,7 +374,7 @@ mod tests {
             let username_str = username.as_str(); 
 
             let profile = fixtures.db_repo
-                .query_profile_query_profile_by_user_name(username_str)
+                .query_profile_by_user_name(username_str)
                 .await
                 .unwrap()
                 .unwrap();
@@ -378,7 +383,7 @@ mod tests {
         }
 
         #[test]
-        fn query_profile_by_user_name() {
+        fn test_query_profile_by_user_name() {
             RT.block_on(test_query_profile_by_user_name_body())
         }
     }
