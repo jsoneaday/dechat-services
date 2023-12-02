@@ -145,13 +145,14 @@ mod tests {
     use crate::repo::{profile::{
         profile::{InsertProfileFn, MockInsertProfileFn},
         model::{ProfileCreate, ProfileQueryResult},
-    }, post::model::PostQueryResult};
+    }, post::model::PostWithProfileQueryResult};
     use crate::test_helpers::fixtures::SUI_CHAIN_ID;
     use super::*;
 
     #[allow(unused)]
     #[derive(Clone)]
     struct Fixtures {
+        pub responder_post_id: i64,
         pub respondee_post_id: i64,
         pub profile_id: i64,
         pub profile_create: ProfileCreate,
@@ -181,14 +182,73 @@ mod tests {
 
     async fn setup_db_test_data(db_repo: DbRepo) -> Result<(), Box<dyn std::error::Error>> {
         let profile_create = get_test_profile_create();
-        let profile_id = db_repo.insert_profile(profile_create.clone()).await.unwrap();
+        let existing_user = sqlx::query_as::<_, ProfileQueryResult>(
+            "select * from profile where user_name = $1"
+        )
+        .bind(profile_create.clone().user_name)
+        .fetch_optional(db_repo.get_conn())
+        .await
+        .unwrap();
 
-        let message = format!("{}Testing body 123", PREFIX);
-        let message_str = message.as_str();
-        _ = db_repo
-            .insert_standalone_post(format!("{}chain_id", PREFIX).as_str(), SUI_CHAIN_ID, profile_id, message_str)
-            .await
-            .unwrap();
+        #[allow(unused)]
+        let mut profile_id = 0;
+        if let None = existing_user {
+            profile_id = db_repo.insert_profile(profile_create).await.unwrap();
+        } else {
+            profile_id = existing_user.unwrap().id;
+        }
+
+        let respondee_message = format!("{}Respondee message 123", PREFIX);
+        let existing_respondee_post = sqlx::query_as::<_, PostWithProfileQueryResult>(
+            r"
+                select
+                    pt.id,
+                    pt.updated_at,
+                    pt.chain_asset_id,
+                    pt.chain_id,
+                    pt.message,
+                    pt.image,
+                    pt.user_id,
+                    pe.user_name,
+                    pe.full_name,
+                    pe.avatar,
+                    pr.respondee_post_id
+                from post pt
+                    join
+                profile pe
+                    on pt.user_id = pe.id
+                    left join
+                post_response pr
+                    on pt.id = pr.responder_post_id
+                where message = $1 and pt.user_id = $2
+            "
+        )
+        .bind(respondee_message.clone())
+        .bind(profile_id)
+        .fetch_optional(db_repo.get_conn())
+        .await;
+        
+        match existing_respondee_post {
+            Ok(option_post) => {
+                match option_post {
+                    None => {
+                        let respondee_post_id = db_repo
+                        .insert_standalone_post(format!("{}chain_id", PREFIX).as_str(), SUI_CHAIN_ID, profile_id, respondee_message.as_str())
+                        .await
+                        .unwrap();
+
+                        _ = db_repo
+                        .insert_response_post(format!("{}chain_id", PREFIX).as_str(), SUI_CHAIN_ID, profile_id, format!("{}Responder message 123", PREFIX).as_str(), respondee_post_id.id)
+                        .await
+                        .unwrap();
+                    },
+                    _ => println!("responder and respondee posts already exist")
+                }
+            },
+            Err(e) => {
+                panic!("{:?}", e);
+            }
+        };
 
         Ok(())
     }
@@ -202,15 +262,73 @@ mod tests {
             .await
             .unwrap();
 
-        let message = format!("{}Testing body 123", PREFIX);        
-        let respondee_post = sqlx::query_as::<_, PostQueryResult>("select * from post where message = $1")
-            .bind(message)
+        let respondee_message = format!("{}Respondee message 123", PREFIX);        
+        let respondee_post = sqlx::query_as::<_, PostWithProfileQueryResult>(
+            r"
+                select
+                    pt.id,
+                    pt.updated_at,
+                    pt.chain_asset_id,
+                    pt.chain_id,
+                    pt.message,
+                    pt.image,
+                    pt.user_id,
+                    pe.user_name,
+                    pe.full_name,
+                    pe.avatar,
+                    pr.respondee_post_id
+                from post pt
+                    join
+                profile pe
+                    on pt.user_id = pe.id
+                left join post_response pr
+                    on pt.id = pr.responder_post_id
+                where message = $1 and pt.user_id = $2
+            ")
+            .bind(respondee_message)
+            .bind(profile.id)
             .fetch_one(db_repo.get_conn())
-            .await
-            .unwrap();
+            .await;
+
+        if respondee_post.is_err() {
+            panic!("{:?}", respondee_post.err());
+        }
+
+        let responder_message = format!("{}Responder message 123", PREFIX);        
+        let responder_post = sqlx::query_as::<_, PostWithProfileQueryResult>(
+            r"
+                select
+                    pt.id,
+                    pt.updated_at,
+                    pt.chain_asset_id,
+                    pt.chain_id,
+                    pt.message,
+                    pt.image,
+                    pt.user_id,
+                    pe.user_name,
+                    pe.full_name,
+                    pe.avatar,
+                    pr.respondee_post_id
+                from post pt
+                    join
+                profile pe
+                    on pt.user_id = pe.id
+                left join post_response pr
+                    on pt.id = pr.responder_post_id
+                where message = $1 and pt.user_id = $2
+            ")
+            .bind(responder_message)
+            .bind(profile.id)
+            .fetch_one(db_repo.get_conn())
+            .await;
+
+        if responder_post.is_err() {
+            panic!("{:?}", responder_post.err());
+        }
 
         Fixtures {
-            respondee_post_id: respondee_post.id,
+            responder_post_id: responder_post.unwrap().id,
+            respondee_post_id: respondee_post.unwrap().id,
             profile_id: profile.id,
             profile_create: get_test_profile_create(),
             db_repo,
@@ -281,7 +399,7 @@ mod tests {
                     format!("{}chain_id", PREFIX).as_str(),
                     SUI_CHAIN_ID,
                     profile_id,
-                    format!("{}Body of message that is being responded to.", PREFIX).as_str()
+                    format!("{}test_insert_post", PREFIX).as_str()
                 )
                 .await
                 .unwrap();
@@ -314,18 +432,18 @@ mod tests {
                 }).await
                 .unwrap();
 
-            let respondee_post_id = fixtures.db_repo
+            let responder_post_id = fixtures.db_repo
                 .insert_response_post(
                     format!("{}chain_id", PREFIX).as_str(),
                     SUI_CHAIN_ID,
                     profile_id,
-                    format!("{}Body of message that is responding to.", PREFIX).as_str(),
+                    format!("{}test_insert_response_post", PREFIX).as_str(),
                     fixtures.respondee_post_id
                 )
                 .await
                 .unwrap();
 
-            assert!(respondee_post_id.id > 0);
+            assert!(responder_post_id.id > 0);
         }
 
         #[test]

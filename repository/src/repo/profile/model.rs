@@ -5,7 +5,6 @@ use sqlx::FromRow;
 #[derive(Debug, Deserialize, Serialize, FromRow, Clone)]
 pub struct ProfileQueryResult {
     pub id: i64,
-    pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub chain_asset_id: String,
     pub chain_id: i64,
